@@ -1,0 +1,2 @@
+# KintoneClosingTime
+組織毎に締切時間を設定するプラグイン
