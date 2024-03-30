@@ -8,11 +8,20 @@
 
 ### イメージ
 
+　![kintoneclosingtime01](https://github.com/noz-23/KintoneClosingTime/assets/160399039/a4556de1-4aaa-4024-a138-7461ae7a965b)
+
+　![kintoneclosingtime02](https://github.com/noz-23/KintoneClosingTime/assets/160399039/3707dbc2-8b3f-432d-b2a4-60003ba693a4)
+
 　
 ## 2.注意点
 
+　組織選択が全部出てきます。
+
+　沢山の組織がある場合、表示が凄いことになります。
 
 ## 3.今後
+
+　出来たら、組織選択フィールド的なモノを作りたいなぁと思います。
 
 
 ## 4.ライセンス
