@@ -4,11 +4,11 @@
   "type": "APP",
   "name": {
     "en": "KintoneClosingTime",
-    "ja": "締切時間"
+    "ja": "組織締切時間"
   },
   "description": {
     "en": "KintoneClosingTime",
-    "ja": "締切時間"
+    "ja": "組織締切時間"
   },
   "icon": "image/icon.png",
   "homepage_url": {
@@ -38,7 +38,7 @@
       "css/config.css"
     ],
     "required_params": [
-	  "paramFieldDate",
+	    "paramFieldDate",
       "paramCountRow"
     ]
   }
