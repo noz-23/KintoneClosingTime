@@ -142,12 +142,24 @@ jQuery.noConflict();
       }
     }
 
-    var listGroup =await GetKintoneGroup();
-    console.log("listGroup:%o",listGroup);
 
     var checkBox = jQuery(Parameter.Elements.GroupCheckBox);
     console.log("checkBox:%o",checkBox);
+    
+    // 全組織の取得
+    var listGroup =await GetListKintoneGroup();
+    console.log("listGroup:%o",listGroup);
 
+    // 組織のツリー化
+    var listTree =GetListTreeGroup(listGroup);
+    console.log("listTree:%o",listTree);
+
+    SetTreeElement(checkBox,listTree,0);
+    //for(var group in listTree)
+    //{
+    //  console.log("group:%o",group);
+    //}
+    /*
     for(var group of listGroup)
     {
       var inputGroup = document.createElement("input");
@@ -164,6 +176,7 @@ jQuery.noConflict();
       checkBox.append(inputGroup);
       checkBox.append(labelGroup);
     }
+    */
 
     //var labelGroup  = document.createElement("label");
 
@@ -299,7 +312,7 @@ jQuery.noConflict();
     引数　：なし
     戻り値：組織リスト
    */
-   const GetKintoneGroup =async ()=>{
+   const GetListKintoneGroup =async ()=>{
      var listGroup =[];
      var offset =0;
      var size =100;
@@ -317,6 +330,126 @@ jQuery.noConflict();
      console.log("listGroup:%o",listGroup);
      return listGroup;
    }
+ 
+  /*
+   * グループの子供の取得
+   */
+  const GetListTreeGroup =(listGroup_)=>{
+    // 一旦ツリービューの元初期化
+    var listConvert=[];
+    var listStart=[];
+    for(var group of listGroup_){
+      listConvert[group.code] ={code:group.code, name:group.name, chlids:[]};
+
+      if( group.parentCode ==null){
+        listStart.push(group.code);
+      }
+
+    }
+    // 親の
+    for(var group of listGroup_){
+      if( group.parentCode ==null){
+        continue;
+      }
+      listConvert[group.parentCode].chlids.push(group.code);
+    }    
+    console.log("listConvert:%o",listConvert);
+
+    return ToTree(listStart ,listConvert);
+  }
+
+  /*
+   * ツリーへの変換(子供)
+   */
+  const ToTree=( listChlid, listMaster_)=>{
+    if( listChlid.length ==0){
+      return [];
+    }
+    var listTree=[];
+    for(var code of listChlid){
+       var name =listMaster_[code].name;
+       var chlids =ToTree(listMaster_[code].chlids,listMaster_);
+      listTree.push({code:code, name:name, chlids:chlids});
+    }    
+
+    return listTree;
+  }
+
+  /*
+   * HTMLのツリー構造へ変換
+   */
+  const SetTreeElement =( document_, listTree_ ,count_)=>{
+    console.log("SetTreeElement :[%o],[%o],[%o]",document_, listTree_,count_);
+
+    if( listTree_ ==null){
+      return;
+    }
+    if( listTree_.length ==0){
+      return;
+    }
+
+    // 項目のまとめ
+    var inputUI = document.createElement("ul");
+    inputUI.className ='class_ul';
+    inputUI.style.display =(count_ >0 ) ? 'none':'block';
+
+    for( var group of listTree_){
+      // 項目 一行
+      var inputli = document.createElement("li");
+
+      //
+      var inputGroup = document.createElement("input");
+      inputGroup.type='checkbox';
+      inputGroup.value =group.code;
+      inputGroup.name =group.name;
+      inputGroup.id =group.code;
+      inputGroup.className=Parameter.Elements.GroupClass;
+      //
+      var labelGroup = document.createElement("label");
+      labelGroup.htmlFor=group.code;
+      labelGroup.innerHTML =group.name;
+      //
+      var treespan = document.createElement("span");
+      treespan.style.textAlign ='right'; 
+      treespan.innerHTML ='▼';
+      treespan.addEventListener('click',TreeClick);
+      //
+
+      inputli.append(inputGroup);
+      inputli.append(labelGroup);
+      //
+      if(group.chlids.length >0)
+      {
+        inputli.append(treespan);
+      }
+      //
+      inputUI.append(inputli);
+
+      count_++;
+      SetTreeElement(inputUI,group.chlids,count_);
+    }
+
+    document_.append(inputUI);
+
+  }
+ 
+  function TreeClick(){
+    console.log("TreeClick this:%o",this);
+
+    var par=jQuery(this).parent().parent();
+    console.log("par:%o",par);
+
+    var childs =par.children('ul');
+    console.log("childs:%o",childs);
+
+    for(var child of childs){
+      console.log("child:%o",child);
+      var result =child.style.display;
+      console.log("result:%o",result);
+      var reverse =(result =='block') ?('none'):('block');
+      child.style.display =reverse;
+    }
+  }
  
 
   // 言語設定
