@@ -16,6 +16,7 @@
  * 
  * History
  *  2024/03/25 0.1.0 初版とりあえずバージョン
+ *  2024/04/09 0.2.0 組織の表示をツリー構造へ変更
  *
  */
 
@@ -142,30 +143,20 @@ jQuery.noConflict();
       }
     }
 
-    var listGroup =await GetKintoneGroup();
-    console.log("listGroup:%o",listGroup);
 
     var checkBox = jQuery(Parameter.Elements.GroupCheckBox);
     console.log("checkBox:%o",checkBox);
+    
+    // 全組織の取得
+    var listGroup =await GetListKintoneGroup();
+    console.log("listGroup:%o",listGroup);
 
-    for(var group of listGroup)
-    {
-      var inputGroup = document.createElement("input");
-      inputGroup.type='checkbox';
-      inputGroup.value =group.code;
-      inputGroup.name =group.name;
-      inputGroup.id =group.code;
-      inputGroup.className=Parameter.Elements.GroupClass;
+    // 組織のツリー化
+    var listTree =GetListTreeGroup(listGroup);
+    console.log("listTree:%o",listTree);
 
-      var labelGroup = document.createElement("label");
-      labelGroup.htmlFor=group.code;
-      labelGroup.innerHTML =group.name;
-
-      checkBox.append(inputGroup);
-      checkBox.append(labelGroup);
-    }
-
-    //var labelGroup  = document.createElement("label");
+    // ul li の設定
+    SetTreeElement(checkBox,listTree,0);
 
     // 現在データの呼び出し
     var nowConfig =kintone.plugin.app.getConfig(PLUGIN_ID_);
@@ -190,7 +181,6 @@ jQuery.noConflict();
       var listTr = jQuery(Parameter.Html.TableBody+' > tr');
       for(var i=0; i<count;i++){
         var row =listTr.eq(i);
-
         //console.log("row:%o",row);
         //
         var chack =jQuery(row).find(Parameter.Elements.GroupCheckBox);
@@ -198,7 +188,7 @@ jQuery.noConflict();
         var listCheckBox= jQuery(row).find('.'+Parameter.Elements.GroupClass);
 
         // チェックボックス
-        // each でやることで、複数のvalを取得できる
+        // each でやることで、forの場合は複数のvalを取得できないため
         listCheckBox.each(function(){
           var inputValue =jQuery(this).val();
           if(listRow[i].ListChecked){
@@ -208,7 +198,24 @@ jQuery.noConflict();
               }
             }  
           }         
-        })
+        });
+
+        // 親組織の取得
+        var listParent =[];
+        for( var code of listRow[i].ListChecked){
+          listParent =GetListParent( listParent, code, listGroup);
+        }
+        var listParent =Array.from(new Set(listParent));
+        console.log("listParent:%o",listParent);
+
+        for( var code of listParent){
+          var elementsUl =jQuery(row).find('#'+code).parent();
+          console.log("elementsUl:%o",elementsUl);
+
+          for(var e of elementsUl){
+            e.style.display ='block';
+          }
+        }
   
         // 設定時間
         if(listRow[i].Time){
@@ -299,7 +306,7 @@ jQuery.noConflict();
     引数　：なし
     戻り値：組織リスト
    */
-   const GetKintoneGroup =async ()=>{
+   const GetListKintoneGroup =async ()=>{
      var listGroup =[];
      var offset =0;
      var size =100;
@@ -314,9 +321,165 @@ jQuery.noConflict();
        offset +=size;
      }while(true);
      
-     console.log("listGroup:%o",listGroup);
+     //console.log("listGroup:%o",listGroup);
      return listGroup;
    }
+ 
+  /*
+   グループの子供の取得
+    引数　：listGroup_　[name:組織名 code:組織コード parentCode:親コード]のリスト(kintoneからの取得)
+    戻り値：ツリー化した組織リスト
+   */
+  const GetListTreeGroup =(listGroup_)=>{
+    // 一旦ツリービューの元初期化
+    var listConvert=[]; // [name:組織名 code:組織コード chlids:子供コードリスト]のリスト
+    var listStart=[];   // 一番上の組織
+    for(var group of listGroup_){
+      listConvert[group.code] ={code:group.code, name:group.name, chlids:[]};
+
+      if( group.parentCode ==null){
+        listStart.push(group.code);
+      }
+    }
+    // 親の組織から子供へ入れ子へ変換
+    for(var group of listGroup_){
+      if( group.parentCode ==null){
+        continue;
+      }
+      listConvert[group.parentCode].chlids.push(group.code);
+    }    
+    console.log("listConvert:%o",listConvert);
+
+    // ツリー化
+    return ToTree(listStart ,listConvert);
+  }
+
+  /*
+   ツリー化(子供) 再帰呼び出し
+    引数　：listChlid_   子供の組織コードリスト
+    　　　　listMaster_  [name:組織名 code:組織コード chlids:子供コードリスト]のリスト(変換元)
+    戻り値：ツリー化した組織リスト
+  */
+  const ToTree=( listChlid, listMaster_)=>{
+    if( listChlid.length ==0){
+      return [];
+    }
+
+    var listTree=[];   // ツリー項目
+    for(var code of listChlid){
+       var name =listMaster_[code].name;
+       // 子供は再帰
+       var chlids =ToTree(listMaster_[code].chlids,listMaster_);
+      listTree.push({code:code, name:name, chlids:chlids});
+    }    
+
+    return listTree;
+  }
+
+  /*
+   HTMLのツリー構造へ変換  再帰呼び出し
+    引数　：document_ 子供の組織コードリスト
+    　　　　listTree_ [name:組織名 code:組織コード chlids:子供コードリスト]のリスト(変換元)
+    　　　　count     一番上の判断様
+    戻り値：なし
+   */
+  const SetTreeElement =( document_, listTree_ ,count_)=>{
+    //console.log("SetTreeElement :[%o],[%o],[%o]",document_, listTree_,count_);
+
+    if( listTree_ ==null){
+      return;
+    }
+    if( listTree_.length ==0){
+      return;
+    }
+
+    // 項目のまとめ
+    var inputUI = document.createElement("ul");
+    inputUI.className ='class_ul';
+    inputUI.style.display =(count_ >0 ) ? 'none':'block';
+    inputUI.style.paddingInline=(count_ >0 ) ? '5% 0%':'0% 0%';
+
+    for( var group of listTree_){
+      // 項目 一行
+      var inputli = document.createElement("li");
+      inputli.id =group.code;
+
+      //
+      var inputGroup = document.createElement("input");
+      inputGroup.type='checkbox';
+      inputGroup.value =group.code;
+      inputGroup.name =group.name;
+      inputGroup.className=Parameter.Elements.GroupClass;
+      //
+      var labelGroup = document.createElement("label");
+      labelGroup.htmlFor=group.code;
+      labelGroup.innerHTML =group.name;
+      //
+      inputli.append(inputGroup);
+      inputli.append(labelGroup);
+      //
+      if(group.chlids.length >0){
+        //子供がない場合は、クリックする所(▼)はつくらない
+        var treespan = document.createElement("span");
+        treespan.style.textAlign ='right'; 
+        treespan.innerHTML ='　▼　';
+        treespan.addEventListener('click',TreeClick);
+        inputli.append(treespan);
+      }
+      //
+      inputUI.append(inputli);
+
+      SetTreeElement(inputUI,group.chlids,count_+1);
+    }
+
+    document_.append(inputUI);
+  }
+ 
+  /*
+   ツリーの展開(▼クリック)
+    引数　：listParent_ 親を含んだリスト(重複あり) code_ 組織コード listGroup_ 検索組織コード
+    戻り値：listParent_ 親を含んだリスト(重複あり)
+   */
+  const GetListParent=( listParent_, code_, listGroup_)=>{
+    console.log("GetListParent:%o",code_);
+    // 
+    if(code_ ==null){
+      return listParent_;
+    }
+
+    listParent_.push(code_);
+
+    var find =listGroup_.find( d => d.code ==code_);
+    if(typeof find =='undefined'){
+      return listParent_;
+    }
+
+    // 親を追加
+    return GetListParent(listParent_, find.parentCode, listGroup_);
+  };
+
+  /*
+   ツリーの展開(▼クリック)
+    引数　：なし
+    戻り値：なし
+   */
+  function TreeClick(){
+    //console.log("TreeClick this:%o",this);
+    // 親の親の取得(ul)
+    var par=jQuery(this).parent().parent();
+    //console.log("par:%o",par);
+
+    var childs =par.children('ul');
+    //console.log("childs:%o",childs);
+
+    for(var child of childs){
+      //console.log("child:%o",child);
+      var result =child.style.display;
+      //console.log("result:%o",result);
+      var reverse =(result =='block') ?('none'):('block');
+      child.style.display =reverse;
+    }
+  }
  
 
   // 言語設定
